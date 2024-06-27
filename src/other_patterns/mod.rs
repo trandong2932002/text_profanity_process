@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs::File, io::BufReader};
 
-//* Patterns
+/// Get HashMap of English contractions.
 pub fn get_english_contractions_hashmap() -> HashMap<String, String> {
     let mut english_contractions = HashMap::new();
     english_contractions.insert("won't".to_owned(), "will not".to_owned());
@@ -16,8 +16,9 @@ pub fn get_english_contractions_hashmap() -> HashMap<String, String> {
     english_contractions
 }
 
+/// Get HashMap of Wikipedia shortcuts.
 pub fn get_wikipedia_shortcuts_hashmap() -> HashMap<String, String> {
-    let wikipedia_shortcuts_filepath = "data/wikipedia_shortcuts/wiki_shortcuts.json";
+    let wikipedia_shortcuts_filepath = "data/others/wiki_shortcuts.json";
     let file = File::open(wikipedia_shortcuts_filepath).unwrap();
     let reader = BufReader::new(file);
     let wikipedia_shortcuts: HashMap<String, String> = serde_json::from_reader(reader).unwrap();
@@ -48,10 +49,12 @@ fn get_wikipedia_shortcuts_values_hashmap(
         .collect()
 }
 
+/// Get regex of Wikipedia namespaces.
 pub fn get_wikipedia_namespace_regex() -> String {
     r#"(talk|user|wikipedia|wp|project|wt|template|tm|help|category|portal|draft|timedtext|module|special|topic|education program|book|gadget|gadget definition)((_| )talk)?:[\w\/#]+"#.to_owned()
 }
 
+/// Get regex of Wikipedia file namespaces.
 pub fn get_wikipedia_file_namespace_regex() -> String {
     r#"(file|image)((_| )talk)?:([\w\s\(\)\&\-\"\']+)((\.(\w{3}))|,|\.|\)|\")"#.to_owned()
 }

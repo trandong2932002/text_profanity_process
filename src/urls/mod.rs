@@ -1,7 +1,7 @@
 use aho_corasick::{AhoCorasick, MatchKind};
 use linkify::{Link, LinkFinder, LinkKind};
 
-//* Replacement Functions
+/// Filter out all emails from text, using Aho-Corasick algorithm.
 pub fn replace_emails(text: &str) -> String {
     let mut finder = LinkFinder::new();
     finder.kinds(&[LinkKind::Email]);
@@ -21,6 +21,7 @@ pub fn replace_emails(text: &str) -> String {
     ac.replace_all(&text, &links_replace)
 }
 
+/// Filter out all urls from text, using Aho-Corasick algorithm.
 pub fn replace_urls(text: &str) -> String {
     let mut finder = LinkFinder::new();
     finder.kinds(&[LinkKind::Url]);

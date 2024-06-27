@@ -1,10 +1,12 @@
 use std::{
+    borrow::Borrow,
     collections::HashSet,
     fs::File,
     io::{BufRead, BufReader},
 };
 
 use once_cell::sync::Lazy;
+use rust_stemmers::{Algorithm, Stemmer};
 use symspell::{SymSpell, UnicodeStringStrategy, Verbosity};
 
 use crate::get_unicode_category;
@@ -12,10 +14,10 @@ use crate::get_unicode_category;
 const BIGRAM_DUPLICATE_THRESHOLD: f32 = 0.3; // magic number
 
 const ENGLISH_FREQUENCY_DICTIONARY_FILEPATH: &str =
-    "data/english/frequency_dictionary_en_82_765.txt";
+    "data/dictionaries/english/frequency_dictionary_en_82_765.txt";
 const ENGLISH_FREQUENCY_BIGRAM_DICTIONARY_FILE_PATH: &str =
-    "data/english/frequency_bigramdictionary_en_243_342.txt";
-const ENGLISH_DICTIONARY_FILEPATH: &str = "data/english/words_alpha.txt";
+    "data/dictionaries/english/frequency_bigramdictionary_en_243_342.txt";
+const ENGLISH_DICTIONARY_FILEPATH: &str = "data/dictionaries/english/words_alpha.txt";
 // const ENGLISH_ONE_LETTER_WORDS: [char; 12] =
 //     ['a', 'i', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 // const ENGLISH_TWO_LETTERS_WORDS: [&str; 26] = [
@@ -45,6 +47,12 @@ static english_dictionary: Lazy<HashSet<String>> = Lazy::new(|| {
     dictionary
 });
 
+static english_stemmer: Lazy<Stemmer> = Lazy::new(|| {
+    eprintln!("English stemmer loading...");
+    Stemmer::create(Algorithm::English)
+});
+
+/// Create vector of bigrams, e.g. hello => he,el,ll,lo
 fn split_bigram(word: &str) -> Vec<[char; 2]> {
     //* Vietnamese and English do not need graphemes
     // // let letters = word.graphemes(true).collect::<Vec<&str>>();
@@ -61,6 +69,7 @@ fn split_bigram(word: &str) -> Vec<[char; 2]> {
     bigrams
 }
 
+/// Create string from bigrams, e.g. he,el,ll,lo => hello
 fn join_bigram(bigrams: &Vec<[char; 2]>) -> String {
     let mut new_word = String::new();
     for bigram in bigrams.iter() {
@@ -70,6 +79,8 @@ fn join_bigram(bigrams: &Vec<[char; 2]>) -> String {
     new_word
 }
 
+/// Remove duplicate bigrams, e.g. helllo => he,el,ll,ll,lo => he,el,ll,lo => hello
+/// If there are too many duplicate bigrams in a word, remove all duplicate bigrams, e.g. hheelloo => helo
 fn reduce_bigram(word: &str) -> String {
     let bigrams = split_bigram(word);
     let mut new_bigrams: Vec<[char; 2]> = Vec::new();
@@ -88,7 +99,7 @@ fn reduce_bigram(word: &str) -> String {
         }
         new_bigrams.push(*bigram);
     }
-    // check if it have too much bigram duplications
+    // check if it have too many duplicate bigrams
     let len_bigrams = new_bigrams.len() + 1;
     if len_bigrams > 3 && duplication_num as f32 > len_bigrams as f32 * BIGRAM_DUPLICATE_THRESHOLD {
         let mut new_new_bigrams: Vec<[char; 2]> = Vec::new();
@@ -103,10 +114,12 @@ fn reduce_bigram(word: &str) -> String {
     join_bigram(&new_bigrams)
 }
 
+/// Check if a word is in the corpora.
 fn is_in_corpora(word: &str) -> bool {
     english_dictionary.contains(word)
 }
 
+/// Check if a word is a number.
 fn is_a_number(word: &str) -> bool {
     match word.parse::<f64>() {
         Ok(_) => true,
@@ -114,18 +127,21 @@ fn is_a_number(word: &str) -> bool {
     }
 }
 
+/// Check if a word is something like a math equation (combination of numbers, symbols and punctuations).
 fn is_math_equation(word: &str) -> bool {
     word.chars()
         .into_iter()
         .all(|letter| ['N', 'S', 'P'].contains(&get_unicode_category(&letter)))
 }
 
+// Check if a word contains only punctuations and symbols.
 fn is_punctuations_or_symbols(word: &str) -> bool {
     word.chars()
         .into_iter()
         .all(|letter| ['P', 'S'].contains(&get_unicode_category(&letter)))
 }
 
+/// Algorithm to correct unknown word
 pub fn correct_unknown_word(word: &str) -> String {
     // first: with simple unknown word, replace all punctuations/symbols with space, try to correct
     // ex: hello.how.are.you
@@ -198,6 +214,10 @@ pub fn process_text(text: &str) -> String {
             continue;
         }
         if is_in_corpora(&word) {
+            result_words.push(word);
+            continue;
+        }
+        if is_in_corpora(english_stemmer.stem(&word).borrow()) {
             result_words.push(word);
             continue;
         }

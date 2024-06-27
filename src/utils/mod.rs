@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use aho_corasick::{AhoCorasick, MatchKind};
 use polars::{datatypes::StringChunked, error::PolarsError, prelude::*, series::Series};
 
+// todo: rewrite using macro
 pub fn series_str_map(
     series_str: Series,
     function: fn(&str) -> String,

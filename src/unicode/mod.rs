@@ -14,7 +14,7 @@ const ALLOWED_BLOCKS: [&str; 6] = [
     "Currency Symbols",
 ];
 
-//* Properties
+/// Get unicode category of character.
 pub fn get_unicode_category(letter: &char) -> char {
     match letter.general_category_group() {
         GeneralCategoryGroup::Letter => 'L',
@@ -27,15 +27,27 @@ pub fn get_unicode_category(letter: &char) -> char {
     }
 }
 
+/// Get unicode block of character.
 pub fn get_unicode_block(letter: &char) -> String {
     find_unicode_block(*letter).unwrap().name().to_owned()
 }
 
-//* Replacement Funtions
-pub fn unicode_normalize(text: &str) -> String {
-    text.nfkd().collect()
+/// Normalize string.
+pub fn unicode_normalize(text: &str, normalization_form: Option<&str>) -> String {
+    let nf = normalization_form.unwrap_or("nfkd");
+    match nf {
+        "nfc" => text.nfc().collect(),
+        "nfd" => text.nfd().collect(),
+        "nfkc" => text.nfkc().collect(),
+        "nfkd" => text.nfkd().collect(),
+        _ => {
+            println!("what is going on there?");
+            text.nfkd().collect()
+        }
+    }
 }
 
+/// Filter out all characters whose block is not accepted.
 pub fn unicode_filter_by_blocks(text: &str) -> String {
     text.chars()
         .filter(|letter| {
@@ -46,13 +58,14 @@ pub fn unicode_filter_by_blocks(text: &str) -> String {
         .collect()
 }
 
+/// Filter out all characters whose category is not accepted.
 pub fn unicode_filter_by_categories(text: &str) -> String {
     text.chars()
         .filter(|letter| !NOT_ALLOWED_CATEGORIES.contains(&get_unicode_category(letter)))
         .collect()
 }
 
-// convert to latin, also normalize quotes/hyphens/dashes
+/// Convert all characters to ASCII, also convert quotes/hyphens/dashes.
 pub fn unicode_decode(text: &str) -> String {
     deunicode(text)
 }

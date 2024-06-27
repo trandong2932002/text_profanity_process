@@ -1,0 +1,1 @@
+Base on https://github.com/snguyenthanh/better_profanity

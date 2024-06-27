@@ -1,21 +1,22 @@
 use std::{env, io, time::Instant};
 
-use emojis::*;
+use crate::emojis::*;
 use other_patterns::*;
 use polars::{
     lazy::dsl::{col, lit, GetOutput},
     prelude::*,
 };
-use preprocess::*;
-use process_text::*;
+use spelling_corrector::*;
 use unicode::*;
 use urls::{replace_emails, replace_urls};
+use utils::*;
 
 mod emojis;
 mod other_patterns;
-mod process_text;
+mod spelling_corrector;
 mod unicode;
 mod urls;
+mod utils;
 
 fn main() {
     let now = Instant::now();
@@ -31,13 +32,14 @@ fn test() {
         let mut line = String::new();
         io::stdin().read_line(&mut line).unwrap();
         line = line.trim().to_owned();
-        println!("{} =======> {}", line, correct_unknown_word(&line));
+        println!("{} =======> {}", line, unicode_decode(&line));
     }
 }
 
 fn real_main() {
     env::set_var("POLARS_FMT_STR_LEN", "120");
-    let dataset_filepath = "data/jigsaw-toxic-comment-classification-challenge/sub1k_train.csv";
+    let dataset_filepath =
+        "data/trainning_dataset/jigsaw-toxic-comment-classification-challenge/sub_train.csv";
 
     let df = CsvReadOptions::default()
         .try_into_reader_with_file_path(Some(dataset_filepath.into()))
@@ -131,8 +133,10 @@ fn real_main() {
         ));
 
     //--
-    let result = ct.collect().unwrap();
-    let row = result.get_row(0).unwrap();
+    let mut df = ct.collect().unwrap();
+    // let mut file = std::fs::File::create("result/output.csv").unwrap();
+    // CsvWriter::new(&mut file).finish(&mut df).unwrap();
+    let row = df.get_row(0).unwrap();
     println!("{:?}", row.0[1]);
     println!("{:?}", row.0[2]);
 }

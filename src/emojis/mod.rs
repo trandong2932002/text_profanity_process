@@ -1,7 +1,8 @@
 use std::{collections::HashMap, fs::File, io::BufReader};
 
+/// Get HashMap of emoticons and their name.
 pub fn get_emoticons_hashmap() -> HashMap<String, String> {
-    let emoticons_filepath = "data/emoticons_emojis/combined_emoji.json";
+    let emoticons_filepath = "data/emojis/combined_emoji.json";
     let file = File::open(emoticons_filepath).unwrap();
     let reader = BufReader::new(file);
     let emoticons_json: HashMap<String, String> = serde_json::from_reader(reader).unwrap();
@@ -16,6 +17,7 @@ pub fn get_emoticons_hashmap() -> HashMap<String, String> {
         .collect()
 }
 
+/// Get HashMap of unicode emojis and their name.
 pub fn get_unicode_emojis_hashmap() -> HashMap<String, String> {
     let unicode_emojis = emojis::iter()
         .filter_map(|e| {
