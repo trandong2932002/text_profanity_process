@@ -26,12 +26,12 @@ mod urls;
 mod utils;
 
 fn main() {
-    // let now = Instant::now();
-    // real_main();
-    // let elapsed = now.elapsed();
-    // println!("{:?}", elapsed);
+    let now = Instant::now();
+    real_main();
+    let elapsed = now.elapsed();
+    println!("{:?}", elapsed);
 
-    test();
+    // test();
 }
 
 fn test() {
@@ -39,18 +39,14 @@ fn test() {
         let mut line = String::new();
         io::stdin().read_line(&mut line).unwrap();
         line = line.trim().to_owned();
-        println!(
-            "{} =======> {:?}",
-            line,
-            SYMSPELL.word_segmentation(&line, 2)
-        );
+        println!("{} =======> {:?}", line, correct_unknown_word(&line));
     }
 }
 
 fn real_main() {
     env::set_var("POLARS_FMT_STR_LEN", "120");
     let dataset_filepath =
-        "data/trainning_dataset/jigsaw-toxic-comment-classification-challenge/sub_train.csv";
+        "data/trainning_dataset/jigsaw-toxic-comment-classification-challenge/train.csv";
 
     let df = CsvReadOptions::default()
         .try_into_reader_with_file_path(Some(dataset_filepath.into()))
@@ -145,9 +141,9 @@ fn real_main() {
 
     //--
     let mut df = ct.collect().unwrap();
-    // let mut file = std::fs::File::create("result/output.csv").unwrap();
-    // CsvWriter::new(&mut file).finish(&mut df).unwrap();
-    let row = df.get_row(0).unwrap();
-    println!("{:?}", row.0[1]);
-    println!("{:?}", row.0[2]);
+    let mut file = std::fs::File::create("data/trainning_dataset/output/output.csv").unwrap();
+    CsvWriter::new(&mut file).finish(&mut df).unwrap();
+    // let row = df.get_row(0).unwrap();
+    // println!("{:?}", row.0[1]);
+    // println!("{:?}", row.0[2]);
 }

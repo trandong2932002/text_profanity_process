@@ -47,51 +47,51 @@ static ENGLISH_DICTIONARY: Lazy<HashSet<String>> = Lazy::new(|| {
     dictionary
 });
 
-// static ENGLISH_SWEAR_WORDS: Lazy<Vec<String>> = Lazy::new(|| {
-//     eprintln!("Spelling Corrector: English swear words loading...");
-//     let mut swear_words: Vec<String> = Vec::new();
-//     let english_swear_words_filepath = "data/dictionaries/english/profanity_wordlist.txt";
-//     let file = File::open(english_swear_words_filepath).unwrap();
-//     let reader = BufReader::new(file);
-//     for line in reader.lines() {
-//         let line = line.unwrap().to_lowercase();
-//         swear_words.push(line);
-//     }
-//     swear_words
-// });
+static ENGLISH_SWEAR_WORDS: Lazy<Vec<String>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: English swear words loading...");
+    let mut swear_words: Vec<String> = Vec::new();
+    let english_swear_words_filepath = "data/dictionaries/english/profanity_wordlist.txt";
+    let file = File::open(english_swear_words_filepath).unwrap();
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+        let line = line.unwrap().to_lowercase();
+        swear_words.push(line);
+    }
+    swear_words
+});
 
-// static ENGLISH_SWEAR_WORDS_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
-//     eprintln!("Spelling Corrector: English swear words replacement creating...");
-//     ENGLISH_SWEAR_WORDS
-//         .clone()
-//         .into_iter()
-//         .filter(|word| !word.contains(" "))
-//         .map(|word| format!(" {} ", word))
-//         .collect()
-// });
+static ENGLISH_SWEAR_WORDS_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: English swear words replacement creating...");
+    ENGLISH_SWEAR_WORDS
+        .clone()
+        .into_iter()
+        // .filter(|word| !word.contains(" "))
+        .map(|word| format!(" {} ", word))
+        .collect()
+});
 
-// static ENGLISH_FIRSTNAMES: Lazy<Vec<String>> = Lazy::new(|| {
-//     eprintln!("Spelling Corrector: English firtnames loading...");
-//     let mut firstnames: Vec<String> = Vec::new();
-//     let english_firstnames_filepath = "data/dictionaries/english/first_names.txt";
-//     let file = File::open(english_firstnames_filepath).unwrap();
-//     let reader = BufReader::new(file);
-//     for line in reader.lines() {
-//         let line = line.unwrap().to_lowercase();
-//         firstnames.push(line);
-//     }
-//     firstnames
-// });
+static ENGLISH_FIRSTNAMES: Lazy<Vec<String>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: English firtnames loading...");
+    let mut firstnames: Vec<String> = Vec::new();
+    let english_firstnames_filepath = "data/dictionaries/english/first-names.txt";
+    let file = File::open(english_firstnames_filepath).unwrap();
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+        let line = line.unwrap().to_lowercase();
+        firstnames.push(line);
+    }
+    firstnames
+});
 
-// static ENGLISH_FIRSTNAMES_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
-//     eprintln!("Spelling Corrector: English swear words replacement creating...");
-//     ENGLISH_FIRSTNAMES
-//         .clone()
-//         .into_iter()
-//         .filter(|word| !word.contains(" "))
-//         .map(|word| format!(" {} ", word))
-//         .collect()
-// });
+static ENGLISH_FIRSTNAMES_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: English swear words replacement creating...");
+    ENGLISH_FIRSTNAMES
+        .clone()
+        .into_iter()
+        // .filter(|word| !word.contains(" "))
+        .map(|word| format!(" {} ", word))
+        .collect()
+});
 
 static ENGLISH_STEMMER: Lazy<Stemmer> = Lazy::new(|| {
     eprintln!("Spelling Corrector: English stemmer loading...");
@@ -227,22 +227,22 @@ pub fn correct_unknown_word(word: &str) -> String {
     // print!("3>");
     new_word.retain(|letter| !letter.is_whitespace());
     new_word = reduce_bigram(&new_word);
-    // // replace swear words
-    // //todo: whitelist?
-    // let ac = AhoCorasick::builder()
-    //     .ascii_case_insensitive(true)
-    //     .match_kind(MatchKind::LeftmostLongest)
-    //     .build(&ENGLISH_SWEAR_WORDS.to_owned())
-    //     .unwrap();
-    // new_word = ac.replace_all(&new_word, &ENGLISH_SWEAR_WORDS_REPLACEMENT);
-    // // replace firstnames
-    // let ac = AhoCorasick::builder()
-    //     .ascii_case_insensitive(true)
-    //     .match_kind(MatchKind::LeftmostLongest)
-    //     .build(&ENGLISH_FIRSTNAMES.to_owned())
-    //     .unwrap();
-    // new_word = ac.replace_all(&new_word, &ENGLISH_FIRSTNAMES_REPLACEMENT);
-    // // split text
+    // replace swear words
+    //todo: whitelist?
+    let ac = AhoCorasick::builder()
+        .ascii_case_insensitive(true)
+        .match_kind(MatchKind::LeftmostLongest)
+        .build(&ENGLISH_SWEAR_WORDS.to_owned())
+        .unwrap();
+    new_word = ac.replace_all(&new_word, &ENGLISH_SWEAR_WORDS_REPLACEMENT);
+    // replace firstnames
+    let ac = AhoCorasick::builder()
+        .ascii_case_insensitive(true)
+        .match_kind(MatchKind::LeftmostLongest)
+        .build(&ENGLISH_FIRSTNAMES.to_owned())
+        .unwrap();
+    new_word = ac.replace_all(&new_word, &ENGLISH_FIRSTNAMES_REPLACEMENT);
+    // split text
     let segmented_string = SYMSPELL
         .word_segmentation(&new_word, ENGLISH_SEGMENTATION_MAX_EDIT_DISTANCE)
         .segmented_string;
