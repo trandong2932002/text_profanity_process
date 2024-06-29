@@ -5,6 +5,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
+use aho_corasick::{AhoCorasick, MatchKind};
 use once_cell::sync::Lazy;
 use rust_stemmers::{Algorithm, Stemmer};
 use symspell::{SymSpell, UnicodeStringStrategy, Verbosity};
@@ -13,11 +14,6 @@ use crate::get_unicode_category;
 
 const BIGRAM_DUPLICATE_THRESHOLD: f32 = 0.3; // magic number
 
-const ENGLISH_FREQUENCY_DICTIONARY_FILEPATH: &str =
-    "data/dictionaries/english/frequency_dictionary_en_82_765.txt";
-const ENGLISH_FREQUENCY_BIGRAM_DICTIONARY_FILE_PATH: &str =
-    "data/dictionaries/english/frequency_bigramdictionary_en_243_342.txt";
-const ENGLISH_DICTIONARY_FILEPATH: &str = "data/dictionaries/english/words_alpha.txt";
 // const ENGLISH_ONE_LETTER_WORDS: [char; 12] =
 //     ['a', 'i', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 // const ENGLISH_TWO_LETTERS_WORDS: [&str; 26] = [
@@ -28,18 +24,22 @@ const ENGLISH_DICTIONARY_FILEPATH: &str = "data/dictionaries/english/words_alpha
 // const ENGLISH_WORD_LENGTH_THRESHOLD: i32 = 2 * ENGLISH_AVG_WORD_LENGTH;
 const ENGLISH_SEGMENTATION_MAX_EDIT_DISTANCE: i64 = 2;
 
-static symspell: Lazy<SymSpell<UnicodeStringStrategy>> = Lazy::new(|| {
-    eprintln!("Symspell loading...");
+pub static SYMSPELL: Lazy<SymSpell<UnicodeStringStrategy>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: SymSpell loading...");
     let mut spell = SymSpell::default();
-    spell.load_dictionary(ENGLISH_FREQUENCY_DICTIONARY_FILEPATH, 0, 1, " ");
-    spell.load_bigram_dictionary(ENGLISH_FREQUENCY_BIGRAM_DICTIONARY_FILE_PATH, 0, 2, " ");
+    let english_frequency_filepath = "data/dictionaries/english/frequency_dictionary_en_82_765.txt";
+    let english_bigram_frequency_filepath =
+        "data/dictionaries/english/frequency_bigramdictionary_en_243_342.txt";
+    spell.load_dictionary(&english_frequency_filepath, 0, 1, " ");
+    spell.load_bigram_dictionary(&english_bigram_frequency_filepath, 0, 2, " ");
     spell
 });
 
-static english_dictionary: Lazy<HashSet<String>> = Lazy::new(|| {
-    eprintln!("English dictionary loading...");
+static ENGLISH_DICTIONARY: Lazy<HashSet<String>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: English dictionary loading...");
     let mut dictionary: HashSet<String> = HashSet::new();
-    let file = File::open(ENGLISH_DICTIONARY_FILEPATH).unwrap();
+    let english_dictionary_filepath = "data/dictionaries/english/words_alpha.txt";
+    let file = File::open(english_dictionary_filepath).unwrap();
     let reader = BufReader::new(file);
     for line in reader.lines() {
         dictionary.insert(line.unwrap());
@@ -47,8 +47,54 @@ static english_dictionary: Lazy<HashSet<String>> = Lazy::new(|| {
     dictionary
 });
 
-static english_stemmer: Lazy<Stemmer> = Lazy::new(|| {
-    eprintln!("English stemmer loading...");
+// static ENGLISH_SWEAR_WORDS: Lazy<Vec<String>> = Lazy::new(|| {
+//     eprintln!("Spelling Corrector: English swear words loading...");
+//     let mut swear_words: Vec<String> = Vec::new();
+//     let english_swear_words_filepath = "data/dictionaries/english/profanity_wordlist.txt";
+//     let file = File::open(english_swear_words_filepath).unwrap();
+//     let reader = BufReader::new(file);
+//     for line in reader.lines() {
+//         let line = line.unwrap().to_lowercase();
+//         swear_words.push(line);
+//     }
+//     swear_words
+// });
+
+// static ENGLISH_SWEAR_WORDS_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
+//     eprintln!("Spelling Corrector: English swear words replacement creating...");
+//     ENGLISH_SWEAR_WORDS
+//         .clone()
+//         .into_iter()
+//         .filter(|word| !word.contains(" "))
+//         .map(|word| format!(" {} ", word))
+//         .collect()
+// });
+
+// static ENGLISH_FIRSTNAMES: Lazy<Vec<String>> = Lazy::new(|| {
+//     eprintln!("Spelling Corrector: English firtnames loading...");
+//     let mut firstnames: Vec<String> = Vec::new();
+//     let english_firstnames_filepath = "data/dictionaries/english/first_names.txt";
+//     let file = File::open(english_firstnames_filepath).unwrap();
+//     let reader = BufReader::new(file);
+//     for line in reader.lines() {
+//         let line = line.unwrap().to_lowercase();
+//         firstnames.push(line);
+//     }
+//     firstnames
+// });
+
+// static ENGLISH_FIRSTNAMES_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
+//     eprintln!("Spelling Corrector: English swear words replacement creating...");
+//     ENGLISH_FIRSTNAMES
+//         .clone()
+//         .into_iter()
+//         .filter(|word| !word.contains(" "))
+//         .map(|word| format!(" {} ", word))
+//         .collect()
+// });
+
+static ENGLISH_STEMMER: Lazy<Stemmer> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: English stemmer loading...");
     Stemmer::create(Algorithm::English)
 });
 
@@ -116,7 +162,7 @@ fn reduce_bigram(word: &str) -> String {
 
 /// Check if a word is in the corpora.
 fn is_in_corpora(word: &str) -> bool {
-    english_dictionary.contains(word)
+    ENGLISH_DICTIONARY.contains(word)
 }
 
 /// Check if a word is a number.
@@ -163,7 +209,7 @@ pub fn correct_unknown_word(word: &str) -> String {
                 result_words.push(_word.to_owned());
                 continue;
             }
-            let suggestion = symspell.lookup(_word, Verbosity::Top, 2);
+            let suggestion = SYMSPELL.lookup(_word, Verbosity::Top, 2);
             if suggestion.len() == 0 {
                 can_correct_flag = false;
                 break;
@@ -175,26 +221,32 @@ pub fn correct_unknown_word(word: &str) -> String {
             return result_words.join(" ");
         }
     }
-    // // second: if this word is single word (word length small), try to correct
-    // // ex: f.u.c.k, f*ck
-    new_word.retain(|letter| !letter.is_whitespace());
-    new_word = reduce_bigram(&new_word);
-    //todo: try here https://github.com/finnbear/rustrict/
-    //todo-try: try here https://github.com/snguyenthanh/better_profanity/
-    // // if new_word.len() < ENGLISH_WORD_LENGTH_THRESHOLD as usize {
-    // //     let suggestion = symspell.lookup(&new_word, Verbosity::Top, 1);
-    // //     if suggestion.len() != 0 {
-    // //         print!("2>");
-    // //         return suggestion[0].term.to_owned();
-    // //     }
-    // // }
-    // third: this word may be complex (multiple words and wrong spell), split and try to correct
+    // second: this word may be complex (multiple words and wrong spell), split and try to correct
     // when split misspelling word, the result may contains unknown sequences of 1/2-chars words (not yet impl)
     // ex: he.l.loh.o.w.ar.ey.ou
     // print!("3>");
-    symspell
+    new_word.retain(|letter| !letter.is_whitespace());
+    new_word = reduce_bigram(&new_word);
+    // // replace swear words
+    // //todo: whitelist?
+    // let ac = AhoCorasick::builder()
+    //     .ascii_case_insensitive(true)
+    //     .match_kind(MatchKind::LeftmostLongest)
+    //     .build(&ENGLISH_SWEAR_WORDS.to_owned())
+    //     .unwrap();
+    // new_word = ac.replace_all(&new_word, &ENGLISH_SWEAR_WORDS_REPLACEMENT);
+    // // replace firstnames
+    // let ac = AhoCorasick::builder()
+    //     .ascii_case_insensitive(true)
+    //     .match_kind(MatchKind::LeftmostLongest)
+    //     .build(&ENGLISH_FIRSTNAMES.to_owned())
+    //     .unwrap();
+    // new_word = ac.replace_all(&new_word, &ENGLISH_FIRSTNAMES_REPLACEMENT);
+    // // split text
+    let segmented_string = SYMSPELL
         .word_segmentation(&new_word, ENGLISH_SEGMENTATION_MAX_EDIT_DISTANCE)
-        .segmented_string
+        .segmented_string;
+    segmented_string
 }
 
 pub fn process_text(text: &str) -> String {
@@ -217,7 +269,7 @@ pub fn process_text(text: &str) -> String {
             result_words.push(word);
             continue;
         }
-        if is_in_corpora(english_stemmer.stem(&word).borrow()) {
+        if is_in_corpora(ENGLISH_STEMMER.stem(&word).borrow()) {
             result_words.push(word);
             continue;
         }

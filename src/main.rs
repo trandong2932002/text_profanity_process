@@ -1,4 +1,10 @@
-use std::{env, io, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    env,
+    fs::File,
+    io::{self, BufRead, BufReader},
+    time::Instant,
+};
 
 use crate::emojis::*;
 use other_patterns::*;
@@ -7,6 +13,7 @@ use polars::{
     prelude::*,
 };
 use spelling_corrector::*;
+use symspell::{SymSpell, UnicodeStringStrategy};
 use unicode::*;
 use urls::{replace_emails, replace_urls};
 use utils::*;
@@ -19,12 +26,12 @@ mod urls;
 mod utils;
 
 fn main() {
-    let now = Instant::now();
-    real_main();
-    let elapsed = now.elapsed();
-    println!("{:?}", elapsed);
+    // let now = Instant::now();
+    // real_main();
+    // let elapsed = now.elapsed();
+    // println!("{:?}", elapsed);
 
-    // test();
+    test();
 }
 
 fn test() {
@@ -32,7 +39,11 @@ fn test() {
         let mut line = String::new();
         io::stdin().read_line(&mut line).unwrap();
         line = line.trim().to_owned();
-        println!("{} =======> {}", line, unicode_decode(&line));
+        println!(
+            "{} =======> {:?}",
+            line,
+            SYMSPELL.word_segmentation(&line, 2)
+        );
     }
 }
 
