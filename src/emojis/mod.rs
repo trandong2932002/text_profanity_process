@@ -1,34 +1,41 @@
-use std::{collections::HashMap, fs::File, io::BufReader};
+use emojis::Emoji;
+use once_cell::sync::Lazy;
+use std::{collections::HashMap, fmt::Write, fs::File, io::BufReader};
 
-/// Get HashMap of emoticons and their name.
-pub fn get_emoticons_hashmap() -> HashMap<String, String> {
+use crate::aho_corasick_replace_all;
+
+const UNICODE_VERSION_MAJOR: u32 = 15;
+const UNICODE_VERSION_MINOR: u32 = 1;
+
+pub static EMOTICONS: Lazy<HashMap<String, String>> = Lazy::new(|| {
     let emoticons_filepath = "data/emojis/combined_emoji.json";
     let file = File::open(emoticons_filepath).unwrap();
     let reader = BufReader::new(file);
     let emoticons_json: HashMap<String, String> = serde_json::from_reader(reader).unwrap();
     emoticons_json
-        .into_iter()
+        .iter()
         .filter_map(|(emoticon, emoticon_name)| {
             if emoticon.chars().all(|c| c.is_ascii_alphabetic()) {
                 return None;
             }
-            Some((emoticon, format!(" {} ", emoticon_name)))
+            Some((emoticon.to_owned(), format!(" {} ", emoticon_name)))
         })
         .collect()
-}
+});
 
-/// Get HashMap of unicode emojis and their name.
-pub fn get_unicode_emojis_hashmap() -> HashMap<String, String> {
-    let unicode_emojis = emojis::iter()
+pub static UNICODE_EMOJIS: Lazy<HashMap<String, String>> = Lazy::new(|| {
+    emojis::iter()
         .filter_map(|e| {
-            if e.unicode_version() > emojis::UnicodeVersion::new(15, 1) {
+            if e.unicode_version()
+                > emojis::UnicodeVersion::new(UNICODE_VERSION_MAJOR, UNICODE_VERSION_MINOR)
+            {
                 return None;
             }
             let e_skin_tones = e.skin_tones();
             if e_skin_tones.is_none() {
                 return None;
             }
-            Some(e_skin_tones.unwrap().collect::<Vec<_>>())
+            Some(e_skin_tones.unwrap().collect::<Vec<&Emoji>>())
         })
         .flatten()
         .map(|e| {
@@ -37,6 +44,15 @@ pub fn get_unicode_emojis_hashmap() -> HashMap<String, String> {
                 format!(" ({}) ", e.name().to_owned()),
             )
         })
-        .collect::<HashMap<_, _>>();
-    unicode_emojis
+        .collect()
+});
+
+pub fn replace_emoticons(text: &str, output: &mut String) {
+    let result = aho_corasick_replace_all(text, &EMOTICONS);
+    write!(output, "{}", result).unwrap();
+}
+
+pub fn replace_unicode_emojis(text: &str, output: &mut String) {
+    let result = aho_corasick_replace_all(text, &UNICODE_EMOJIS);
+    write!(output, "{}", result).unwrap();
 }
