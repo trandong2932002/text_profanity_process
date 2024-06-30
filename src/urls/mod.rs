@@ -1,8 +1,9 @@
 use aho_corasick::{AhoCorasick, MatchKind};
 use linkify::{LinkFinder, LinkKind};
+use std::fmt::Write;
 
 /// Filter out all emails from text, using Aho-Corasick algorithm.
-pub fn replace_emails(text: &str) -> String {
+pub fn replace_emails(text: &str, output: &mut String) {
     let mut finder = LinkFinder::new();
     finder.kinds(&[LinkKind::Email]);
 
@@ -18,11 +19,12 @@ pub fn replace_emails(text: &str) -> String {
         .match_kind(MatchKind::LeftmostLongest)
         .build(&emails)
         .unwrap();
-    ac.replace_all(&text, &emails_replacement)
+    let result = ac.replace_all(&text, &emails_replacement);
+    write!(output, "{}", result).unwrap();
 }
 
 /// Filter out all urls from text, using Aho-Corasick algorithm.
-pub fn replace_urls(text: &str) -> String {
+pub fn replace_urls(text: &str, output: &mut String) {
     let mut finder = LinkFinder::new();
     finder.kinds(&[LinkKind::Url]);
     finder.url_must_have_scheme(false);
@@ -39,5 +41,6 @@ pub fn replace_urls(text: &str) -> String {
         .match_kind(MatchKind::LeftmostLongest)
         .build(&links)
         .unwrap();
-    ac.replace_all(&text, &links_replacement)
+    let result = ac.replace_all(&text, &links_replacement);
+    write!(output, "{}", result).unwrap();
 }
