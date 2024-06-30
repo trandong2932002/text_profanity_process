@@ -1,6 +1,7 @@
 use std::{
     borrow::Borrow,
     collections::HashSet,
+    fmt::Write,
     fs::File,
     io::{BufRead, BufReader},
 };
@@ -249,7 +250,7 @@ pub fn correct_unknown_word(word: &str) -> String {
     segmented_string
 }
 
-pub fn process_text(text: &str) -> String {
+pub fn process_text(text: &str, output: &mut String) {
     let mut result_words: Vec<String> = Vec::new();
     for word in text.split_whitespace().into_iter() {
         let word = word.to_lowercase();
@@ -275,5 +276,6 @@ pub fn process_text(text: &str) -> String {
         }
         result_words.push(correct_unknown_word(&word));
     }
-    result_words.join(" ")
+    let result = result_words.join(" ");
+    write!(output, "{}", result);
 }
