@@ -43,7 +43,7 @@ pub fn unicode_normalize(text: &str, output: &mut String, normalization_form: Op
         "nfkd" => text.nfkd().collect::<String>(),
         _ => "".to_owned(),
     };
-    write!(output, "{}", result);
+    write!(output, "{}", result).unwrap();
 }
 
 /// Filter out all characters whose block is not accepted.
@@ -56,7 +56,7 @@ pub fn unicode_filter_by_blocks(text: &str, output: &mut String) {
                 .any(|allowed_block| get_unicode_block(letter).contains(allowed_block))
         })
         .collect::<String>();
-    write!(output, "{}", result);
+    write!(output, "{}", result).unwrap();
 }
 
 /// Filter out all characters whose category is not accepted.
@@ -65,11 +65,11 @@ pub fn unicode_filter_by_categories(text: &str, output: &mut String) {
         .chars()
         .filter(|letter| !NOT_ALLOWED_CATEGORIES.contains(&get_unicode_category(letter)))
         .collect::<String>();
-    write!(output, "{}", result);
+    write!(output, "{}", result).unwrap();
 }
 
 /// Convert all characters to ASCII, also convert quotes/hyphens/dashes.
 pub fn unicode_decode(text: &str, output: &mut String) {
     let result = deunicode(text);
-    write!(output, "{}", result);
+    write!(output, "{}", result).unwrap();
 }
