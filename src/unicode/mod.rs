@@ -1,4 +1,5 @@
 use deunicode::deunicode;
+use std::fmt::Write;
 use unicode_blocks::find_unicode_block;
 use unicode_normalization::UnicodeNormalization;
 use unicode_properties::{GeneralCategoryGroup, UnicodeGeneralCategory};
@@ -28,44 +29,47 @@ pub fn get_unicode_category(letter: &char) -> char {
 }
 
 /// Get unicode block of character.
-pub fn get_unicode_block(letter: &char) -> String {
-    find_unicode_block(*letter).unwrap().name().to_owned()
+pub fn get_unicode_block(letter: &char) -> &str {
+    find_unicode_block(*letter).unwrap().name()
 }
 
 /// Normalize string.
-pub fn unicode_normalize(text: &str, normalization_form: Option<&str>) -> String {
+pub fn unicode_normalize(text: &str, output: &mut String, normalization_form: Option<&str>) {
     let nf = normalization_form.unwrap_or("nfkd");
-    match nf {
-        "nfc" => text.nfc().collect(),
-        "nfd" => text.nfd().collect(),
-        "nfkc" => text.nfkc().collect(),
-        "nfkd" => text.nfkd().collect(),
-        _ => {
-            println!("what is going on there?");
-            text.nfkd().collect()
-        }
-    }
+    let result = match nf {
+        "nfc" => text.nfc().collect::<String>(),
+        "nfd" => text.nfd().collect::<String>(),
+        "nfkc" => text.nfkc().collect::<String>(),
+        "nfkd" => text.nfkd().collect::<String>(),
+        _ => "".to_owned(),
+    };
+    write!(output, "{}", result);
 }
 
 /// Filter out all characters whose block is not accepted.
-pub fn unicode_filter_by_blocks(text: &str) -> String {
-    text.chars()
+pub fn unicode_filter_by_blocks(text: &str, output: &mut String) {
+    let result = text
+        .chars()
         .filter(|letter| {
             ALLOWED_BLOCKS
                 .iter()
                 .any(|allowed_block| get_unicode_block(letter).contains(allowed_block))
         })
-        .collect()
+        .collect::<String>();
+    write!(output, "{}", result);
 }
 
 /// Filter out all characters whose category is not accepted.
-pub fn unicode_filter_by_categories(text: &str) -> String {
-    text.chars()
+pub fn unicode_filter_by_categories(text: &str, output: &mut String) {
+    let result = text
+        .chars()
         .filter(|letter| !NOT_ALLOWED_CATEGORIES.contains(&get_unicode_category(letter)))
-        .collect()
+        .collect::<String>();
+    write!(output, "{}", result);
 }
 
 /// Convert all characters to ASCII, also convert quotes/hyphens/dashes.
-pub fn unicode_decode(text: &str) -> String {
-    deunicode(text)
+pub fn unicode_decode(text: &str, output: &mut String) {
+    let result = deunicode(text);
+    write!(output, "{}", result);
 }
