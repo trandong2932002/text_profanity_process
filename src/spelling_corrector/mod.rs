@@ -277,5 +277,5 @@ pub fn process_text(text: &str, output: &mut String) {
         result_words.push(correct_unknown_word(&word));
     }
     let result = result_words.join(" ");
-    write!(output, "{}", result);
+    write!(output, "{}", result).unwrap();
 }
