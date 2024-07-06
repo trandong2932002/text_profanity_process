@@ -1,5 +1,4 @@
 use std::{
-    borrow::Borrow,
     collections::HashSet,
     fmt::Write,
     fs::File,
@@ -8,39 +7,26 @@ use std::{
 
 use aho_corasick::{AhoCorasick, MatchKind};
 use once_cell::sync::Lazy;
-use rust_stemmers::{Algorithm, Stemmer};
 use symspell::{SymSpell, UnicodeStringStrategy, Verbosity};
 
 use crate::get_unicode_category;
 
 const BIGRAM_DUPLICATE_THRESHOLD: f32 = 0.3; // magic number
-
-// const ENGLISH_ONE_LETTER_WORDS: [char; 12] =
-//     ['a', 'i', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-// const ENGLISH_TWO_LETTERS_WORDS: [&str; 26] = [
-//     "am", "an", "as", "at", "be", "by", "do", "go", "he", "if", "in", "is", "it", "me", "my", "no",
-//     "of", "ok", "on", "or", "ox", "so", "to", "up", "us", "we",
-// ];
-// const ENGLISH_AVG_WORD_LENGTH: i32 = 5;
-// const ENGLISH_WORD_LENGTH_THRESHOLD: i32 = 2 * ENGLISH_AVG_WORD_LENGTH;
-const ENGLISH_SEGMENTATION_MAX_EDIT_DISTANCE: i64 = 2;
+const SEGMENTATION_MAX_EDIT_DISTANCE: i64 = 2;
 
 pub static SYMSPELL: Lazy<SymSpell<UnicodeStringStrategy>> = Lazy::new(|| {
     eprintln!("Spelling Corrector: SymSpell loading...");
     let mut spell = SymSpell::default();
-    let english_frequency_filepath = "data/dictionaries/english/frequency_dictionary_en_82_765.txt";
-    let english_bigram_frequency_filepath =
-        "data/dictionaries/english/frequency_bigramdictionary_en_243_342.txt";
-    spell.load_dictionary(&english_frequency_filepath, 0, 1, " ");
-    spell.load_bigram_dictionary(&english_bigram_frequency_filepath, 0, 2, " ");
+    let vietnamese_frequency_filepath = "data/dictionaries/vietnamese/vi_50k.txt";
+    spell.load_dictionary(&vietnamese_frequency_filepath, 0, 1, " ");
     spell
 });
 
-static ENGLISH_DICTIONARY: Lazy<HashSet<String>> = Lazy::new(|| {
-    eprintln!("Spelling Corrector: English dictionary loading...");
+static VIETNAMESE_DICTIONARY: Lazy<HashSet<String>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: Vietnamese dictionary loading...");
     let mut dictionary: HashSet<String> = HashSet::new();
-    let english_dictionary_filepath = "data/dictionaries/english/words_alpha.txt";
-    let file = File::open(english_dictionary_filepath).unwrap();
+    let vietnamese_dictionary_filepath = "data/dictionaries/vietnamese/words_alpha.txt";
+    let file = File::open(vietnamese_dictionary_filepath).unwrap();
     let reader = BufReader::new(file);
     for line in reader.lines() {
         dictionary.insert(line.unwrap());
@@ -71,32 +57,22 @@ static ENGLISH_SWEAR_WORDS_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
         .collect()
 });
 
-static ENGLISH_FIRSTNAMES: Lazy<Vec<String>> = Lazy::new(|| {
-    eprintln!("Spelling Corrector: English firtnames loading...");
-    let mut firstnames: Vec<String> = Vec::new();
-    let english_firstnames_filepath = "data/dictionaries/english/first-names.txt";
-    let file = File::open(english_firstnames_filepath).unwrap();
+static VIETNAMESE_SWEAR_WORDS: Lazy<Vec<String>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: Vietnamese swear words loading...");
+    let vietnamese_swear_words_filepath = "data/dictionaries/vietnamese/vi.json";
+    let file = File::open(vietnamese_swear_words_filepath).unwrap();
     let reader = BufReader::new(file);
-    for line in reader.lines() {
-        let line = line.unwrap().to_lowercase();
-        firstnames.push(line);
-    }
-    firstnames
+    serde_json::from_reader(reader).unwrap()
 });
 
-static ENGLISH_FIRSTNAMES_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
-    eprintln!("Spelling Corrector: English swear words replacement creating...");
-    ENGLISH_FIRSTNAMES
+static VIETNAMESE_SWEAR_WORDS_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: Vietnamese swear words replacement creating...");
+    VIETNAMESE_SWEAR_WORDS
         .clone()
         .into_iter()
         // .filter(|word| !word.contains(" "))
         .map(|word| format!(" {} ", word))
         .collect()
-});
-
-static ENGLISH_STEMMER: Lazy<Stemmer> = Lazy::new(|| {
-    eprintln!("Spelling Corrector: English stemmer loading...");
-    Stemmer::create(Algorithm::English)
 });
 
 /// Create vector of bigrams, e.g. hello => he,el,ll,lo
@@ -163,7 +139,7 @@ fn reduce_bigram(word: &str) -> String {
 
 /// Check if a word is in the corpora.
 fn is_in_corpora(word: &str) -> bool {
-    ENGLISH_DICTIONARY.contains(word)
+    VIETNAMESE_DICTIONARY.contains(word)
 }
 
 /// Check if a word is a number.
@@ -181,7 +157,7 @@ fn is_math_equation(word: &str) -> bool {
         .all(|letter| ['N', 'S', 'P'].contains(&get_unicode_category(&letter)))
 }
 
-// Check if a word contains only punctuations and symbols.
+/// Check if a word contains only punctuations and symbols.
 fn is_punctuations_or_symbols(word: &str) -> bool {
     word.chars()
         .into_iter()
@@ -202,26 +178,6 @@ pub fn correct_unknown_word(word: &str) -> String {
             }
         })
         .collect::<String>();
-    if new_word != word {
-        let mut result_words: Vec<String> = Vec::new();
-        let mut can_correct_flag = true;
-        for _word in new_word.split_whitespace().into_iter() {
-            if is_in_corpora(_word) {
-                result_words.push(_word.to_owned());
-                continue;
-            }
-            let suggestion = SYMSPELL.lookup(_word, Verbosity::Top, 2);
-            if suggestion.len() == 0 {
-                can_correct_flag = false;
-                break;
-            }
-            result_words.push(suggestion[0].term.to_owned());
-        }
-        if can_correct_flag {
-            // print!("1>");
-            return result_words.join(" ");
-        }
-    }
     // second: this word may be complex (multiple words and wrong spell), split and try to correct
     // when split misspelling word, the result may contains unknown sequences of 1/2-chars words (not yet impl)
     // ex: he.l.loh.o.w.ar.ey.ou
@@ -233,19 +189,13 @@ pub fn correct_unknown_word(word: &str) -> String {
     let ac = AhoCorasick::builder()
         .ascii_case_insensitive(true)
         .match_kind(MatchKind::LeftmostLongest)
-        .build(&ENGLISH_SWEAR_WORDS.to_owned())
+        // .build(&ENGLISH_SWEAR_WORDS.to_owned())
+        .build(&VIETNAMESE_SWEAR_WORDS.to_owned())
         .unwrap();
-    new_word = ac.replace_all(&new_word, &ENGLISH_SWEAR_WORDS_REPLACEMENT);
-    // replace firstnames
-    let ac = AhoCorasick::builder()
-        .ascii_case_insensitive(true)
-        .match_kind(MatchKind::LeftmostLongest)
-        .build(&ENGLISH_FIRSTNAMES.to_owned())
-        .unwrap();
-    new_word = ac.replace_all(&new_word, &ENGLISH_FIRSTNAMES_REPLACEMENT);
+    new_word = ac.replace_all(&new_word, &VIETNAMESE_SWEAR_WORDS_REPLACEMENT);
     // split text
     let segmented_string = SYMSPELL
-        .word_segmentation(&new_word, ENGLISH_SEGMENTATION_MAX_EDIT_DISTANCE)
+        .word_segmentation(&new_word, SEGMENTATION_MAX_EDIT_DISTANCE)
         .segmented_string;
     segmented_string
 }
@@ -270,7 +220,7 @@ pub fn process_text(text: &str, output: &mut String) {
             result_words.push(word);
             continue;
         }
-        if is_in_corpora(ENGLISH_STEMMER.stem(&word).borrow()) {
+        if is_in_corpora(&word) {
             result_words.push(word);
             continue;
         }

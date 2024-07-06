@@ -1137,7 +1137,6 @@ dependencies = [
  "once_cell",
  "polars",
  "regex",
- "rust-stemmers",
  "serde",
  "serde_json",
  "symspell",
@@ -1300,16 +1299,6 @@ name = "regex-syntax"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a66a03ae7c801facd77a29370b4faec201768915ac14a721ba36f20bc9c209b"
-
-[[package]]
-name = "rust-stemmers"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e46a2036019fdb888131db7a4c847a1063a7493f971ed94ea82c67eada63ca54"
-dependencies = [
- "serde",
- "serde_derive",
-]
 
 [[package]]
 name = "rustversion"
