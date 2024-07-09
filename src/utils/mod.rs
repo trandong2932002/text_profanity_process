@@ -20,3 +20,12 @@ pub fn aho_corasick_replace_all(
         .unwrap();
     ac.replace_all(&text, &replace_with)
 }
+
+pub fn apply<'a, F>(line: &'a str, mut f: F) -> String
+where
+    F: FnMut(&'a str, &mut String),
+{
+    let mut buf = String::new();
+    f(line, &mut buf);
+    buf
+}
