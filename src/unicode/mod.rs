@@ -33,16 +33,9 @@ pub fn get_unicode_block(letter: &char) -> &str {
     find_unicode_block(*letter).unwrap().name()
 }
 
-/// Normalize string.
-pub fn unicode_normalize(text: &str, output: &mut String, normalization_form: Option<&str>) {
-    let nf = normalization_form.unwrap_or("nfkd");
-    let result = match nf {
-        "nfc" => text.nfc().collect::<String>(),
-        "nfd" => text.nfd().collect::<String>(),
-        "nfkc" => text.nfkc().collect::<String>(),
-        "nfkd" => text.nfkd().collect::<String>(),
-        _ => "".to_owned(),
-    };
+/// Normalize string (nfkc).
+pub fn unicode_normalize(text: &str, output: &mut String) {
+    let result = text.nfkc().collect::<String>();
     write!(output, "{}", result).unwrap();
 }
 
