@@ -8,16 +8,26 @@ use std::{
 use aho_corasick::{AhoCorasick, MatchKind};
 use once_cell::sync::Lazy;
 use symspell::{SymSpell, UnicodeStringStrategy, Verbosity};
+use unicode_segmentation::UnicodeSegmentation;
 
-use crate::get_unicode_category;
+use crate::{apply, get_unicode_category, unicode_decode};
 
 const BIGRAM_DUPLICATE_THRESHOLD: f32 = 0.3; // magic number
 const SEGMENTATION_MAX_EDIT_DISTANCE: i64 = 2;
 
+// todo: generate new data using https://github.com/binhvq/news-corpus
 pub static SYMSPELL: Lazy<SymSpell<UnicodeStringStrategy>> = Lazy::new(|| {
     eprintln!("Spelling Corrector: SymSpell loading...");
     let mut spell = SymSpell::default();
     let vietnamese_frequency_filepath = "data/dictionaries/vietnamese/vi_50k.txt";
+    spell.load_dictionary(&vietnamese_frequency_filepath, 0, 1, " ");
+    spell
+});
+
+pub static SYMSPELL_WITHOUT_ACCENTS: Lazy<SymSpell<UnicodeStringStrategy>> = Lazy::new(|| {
+    eprintln!("Spelling Corrector: SymSpell (without accents) loading...");
+    let mut spell = SymSpell::default();
+    let vietnamese_frequency_filepath = "data/dictionaries/vietnamese/vi_50k_no_accent.txt";
     spell.load_dictionary(&vietnamese_frequency_filepath, 0, 1, " ");
     spell
 });
@@ -59,10 +69,23 @@ static ENGLISH_SWEAR_WORDS_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
 
 static VIETNAMESE_SWEAR_WORDS: Lazy<Vec<String>> = Lazy::new(|| {
     eprintln!("Spelling Corrector: Vietnamese swear words loading...");
+    let mut swear_words: HashSet<String> = HashSet::new();
     let vietnamese_swear_words_filepath = "data/dictionaries/vietnamese/vi.json";
     let file = File::open(vietnamese_swear_words_filepath).unwrap();
     let reader = BufReader::new(file);
-    serde_json::from_reader(reader).unwrap()
+    let s_words: Vec<String> = serde_json::from_reader(reader).unwrap();
+    swear_words.extend(s_words);
+
+    let vietnamese_swear_words_filepath = "data/dictionaries/vietnamese/vn_offensive_words.txt";
+    let file = File::open(vietnamese_swear_words_filepath).unwrap();
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+        let word = line.unwrap();
+        if word.chars().nth(0).unwrap() != '#' {
+            swear_words.insert(word);
+        }
+    }
+    swear_words.into_iter().collect::<Vec<String>>()
 });
 
 static VIETNAMESE_SWEAR_WORDS_REPLACEMENT: Lazy<Vec<String>> = Lazy::new(|| {
@@ -164,10 +187,25 @@ fn is_punctuations_or_symbols(word: &str) -> bool {
         .all(|letter| ['P', 'S'].contains(&get_unicode_category(&letter)))
 }
 
+/// Sympell word segmentation for vietnamese is better without accents
+fn word_segmentation_without_accents(text: &str, spell: &str) -> String {
+    let c_text = text.graphemes(true).collect::<Vec<&str>>();
+    let indices = spell
+        .match_indices(' ')
+        .map(|(i, _)| i)
+        .collect::<Vec<usize>>();
+    let mut result: Vec<String> = Vec::new();
+    let mut last_index = 0;
+    for (i, index) in indices.iter().enumerate() {
+        result.push(c_text[last_index..(index - i)].join(""));
+        last_index = index - i;
+    }
+    result.push(c_text[last_index..].join(""));
+    result.join(" ")
+}
+
 /// Algorithm to correct unknown word
 pub fn correct_unknown_word(word: &str) -> String {
-    // first: with simple unknown word, replace all punctuations/symbols with space, try to correct
-    // ex: hello.how.are.you
     let mut new_word = word
         .chars()
         .map(|letter| {
@@ -178,14 +216,21 @@ pub fn correct_unknown_word(word: &str) -> String {
             }
         })
         .collect::<String>();
-    // second: this word may be complex (multiple words and wrong spell), split and try to correct
-    // when split misspelling word, the result may contains unknown sequences of 1/2-chars words (not yet impl)
-    // ex: he.l.loh.o.w.ar.ey.ou
-    // print!("3>");
-    new_word.retain(|letter| !letter.is_whitespace());
+    //? single word?
+    new_word.retain(|letter| !letter.is_whitespace()); //?
     new_word = reduce_bigram(&new_word);
+
     // replace swear words
-    //todo: whitelist?
+    // todo: whitelist?
+    // todo: correct replacement?
+    // let ac = AhoCorasick::builder()
+    //     .ascii_case_insensitive(true)
+    //     .match_kind(MatchKind::LeftmostLongest)
+    //     // .build(&ENGLISH_SWEAR_WORDS.to_owned())
+    //     .build(&ENGLISH_SWEAR_WORDS.to_owned())
+    //     .unwrap();
+    // new_word = ac.replace_all(&new_word, &ENGLISH_SWEAR_WORDS_REPLACEMENT);
+
     let ac = AhoCorasick::builder()
         .ascii_case_insensitive(true)
         .match_kind(MatchKind::LeftmostLongest)
@@ -193,11 +238,33 @@ pub fn correct_unknown_word(word: &str) -> String {
         .build(&VIETNAMESE_SWEAR_WORDS.to_owned())
         .unwrap();
     new_word = ac.replace_all(&new_word, &VIETNAMESE_SWEAR_WORDS_REPLACEMENT);
-    // split text
-    let segmented_string = SYMSPELL
-        .word_segmentation(&new_word, SEGMENTATION_MAX_EDIT_DISTANCE)
-        .segmented_string;
-    segmented_string
+
+    // multiple words stuck together: split text
+    let spell0 = SYMSPELL_WITHOUT_ACCENTS.word_segmentation(
+        &apply(&new_word, unicode_decode),
+        SEGMENTATION_MAX_EDIT_DISTANCE,
+    );
+    let spell1 = SYMSPELL.word_segmentation(&new_word, SEGMENTATION_MAX_EDIT_DISTANCE);
+    if spell0.segmented_string == apply(&spell1.segmented_string, unicode_decode) {
+        return spell1.segmented_string;
+    }
+    //
+    if spell0.distance_sum < spell1.distance_sum {
+        // select spell0
+        return word_segmentation_without_accents(&new_word, &spell0.segmented_string);
+    } else if spell0.distance_sum > spell1.distance_sum {
+        // select spell1
+        return spell1.segmented_string;
+    } else if spell0.prob_log_sum < spell1.prob_log_sum {
+        // select spell0
+        return word_segmentation_without_accents(&new_word, &spell0.segmented_string);
+    } else if spell0.prob_log_sum > spell0.prob_log_sum {
+        // select spell1
+        return spell1.segmented_string;
+    } else {
+        // default: select spell1
+        return spell1.segmented_string;
+    }
 }
 
 pub fn process_text(text: &str, output: &mut String) {

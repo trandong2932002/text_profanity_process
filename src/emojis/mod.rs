@@ -8,7 +8,7 @@ const UNICODE_VERSION_MAJOR: u32 = 15;
 const UNICODE_VERSION_MINOR: u32 = 1;
 
 pub static EMOTICONS: Lazy<HashMap<String, String>> = Lazy::new(|| {
-    let emoticons_filepath = "data/emojis/combined_emoji.json";
+    let emoticons_filepath = "data/emojis/combined_emoji_vi.json";
     let file = File::open(emoticons_filepath).unwrap();
     let reader = BufReader::new(file);
     let emoticons_json: HashMap<String, String> = serde_json::from_reader(reader).unwrap();
@@ -24,27 +24,32 @@ pub static EMOTICONS: Lazy<HashMap<String, String>> = Lazy::new(|| {
 });
 
 pub static UNICODE_EMOJIS: Lazy<HashMap<String, String>> = Lazy::new(|| {
-    emojis::iter()
-        .filter_map(|e| {
-            if e.unicode_version()
-                > emojis::UnicodeVersion::new(UNICODE_VERSION_MAJOR, UNICODE_VERSION_MINOR)
-            {
-                return None;
-            }
-            let e_skin_tones = e.skin_tones();
-            if e_skin_tones.is_none() {
-                return None;
-            }
-            Some(e_skin_tones.unwrap().collect::<Vec<&Emoji>>())
-        })
-        .flatten()
-        .map(|e| {
-            (
-                e.as_str().to_owned(),
-                format!(" ({}) ", e.name().to_owned()),
-            )
-        })
-        .collect()
+    // emojis::iter()
+    //     .filter_map(|e| {
+    //         if e.unicode_version()
+    //             > emojis::UnicodeVersion::new(UNICODE_VERSION_MAJOR, UNICODE_VERSION_MINOR)
+    //         {
+    //             return None;
+    //         }
+    //         let e_skin_tones = e.skin_tones();
+    //         if e_skin_tones.is_none() {
+    //             return None;
+    //         }
+    //         Some(e_skin_tones.unwrap().collect::<Vec<&Emoji>>())
+    //     })
+    //     .flatten()
+    //     .map(|e| {
+    //         (
+    //             e.as_str().to_owned(),
+    //             format!(" ({}) ", e.name().to_owned()),
+    //         )
+    //     })
+    //     .collect()
+    let emoticons_filepath = "data/emojis/unicode_emoji_vi.json";
+    let file = File::open(emoticons_filepath).unwrap();
+    let reader = BufReader::new(file);
+    let emoticons_json: HashMap<String, String> = serde_json::from_reader(reader).unwrap();
+    emoticons_json
 });
 
 pub fn replace_emoticons(text: &str, output: &mut String) {

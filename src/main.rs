@@ -1,10 +1,14 @@
-use std::io;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{self, BufReader},
+};
 
-use crate::emojis::*;
+use deunicode::deunicode_with_tofu;
+use emojis::*;
 use spelling_corrector::*;
 use unicode::*;
-use unicode_normalization::UnicodeNormalization;
-use urls::{replace_emails, replace_urls};
+use urls::*;
 use utils::*;
 
 mod emojis;
@@ -18,25 +22,22 @@ fn main() {
     loop {
         let mut line = String::new();
         io::stdin().read_line(&mut line).unwrap();
-        line = line.trim().to_lowercase();
-        line = line.nfkc().collect::<String>();
-        line = apply(&line, replace_emails);
-        line = apply(&line, replace_urls);
-        line = apply(&line, replace_emoticons);
-        line = apply(&line, replace_unicode_emojis);
-        line = apply(&line, unicode_filter_by_blocks);
-        line = apply(&line, unicode_filter_by_categories);
-        line = apply(&line, process_text);
-
-        println!("{}", line);
+        // line = line.trim().to_lowercase();
+        let result = text_profanity_process(&line);
+        println!("{}", result);
     }
 }
 
-fn apply<'a, F>(line: &'a str, mut f: F) -> String
-where
-    F: FnMut(&'a str, &mut String),
-{
-    let mut buf = String::new();
-    f(line, &mut buf);
-    buf
+fn text_profanity_process(text: &str) -> String {
+    let mut new_text = text.to_owned();
+    new_text = apply(&new_text, unicode_normalize);
+    new_text = apply(&new_text, replace_emails);
+    new_text = apply(&new_text, replace_urls);
+    new_text = apply(&new_text, replace_emoticons);
+    new_text = apply(&new_text, replace_unicode_emojis);
+    new_text = apply(&new_text, unicode_filter_by_blocks);
+    new_text = apply(&new_text, unicode_filter_by_categories);
+    new_text = apply(&new_text, unicode_decode_vietnamese);
+    new_text = apply(&new_text, process_text);
+    new_text
 }
